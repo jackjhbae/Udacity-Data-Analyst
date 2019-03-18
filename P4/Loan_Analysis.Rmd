@@ -1,0 +1,596 @@
+---
+output:
+  html_document: default
+  pdf_document: default
+---
+Loan Data Analysis by Jack Bae
+========================================================
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, packages}
+library(ggplot2)
+library(lubridate)
+library("GGally")
+```
+
+```{r echo=FALSE, Load_the_Data}
+# Load the Data
+loans <- read.csv('/Users/jackbae/Google Drive/Udacity/P4/prosperLoanData.csv', sep = ',', stringsAsFactors=FALSE)
+```
+
+## Introduction
+***
+
+**Prosper** (www.prosper.com) is a peer-to-peer marketplace lending platform. 
+Here is an explanation of Prosper from their website:
+
+> Prosper allows people to invest in each other in a way that is financially and
+socially rewarding. On Prosper, borrowers list loan requests between $2,000 and
+$35,000 and individual investors invest as little as $25 in each loan listing 
+they select. Prosper handles the servicing of the loan on behalf of the matched 
+borrowers and investors.
+
+And the process of how peer-to-peer lending at Prosper works:
+
+> - Borrowers choose a loan amount, purpose and post a loan listing.
+> - Investors review loan listings and invest in listings that meet their criteria.
+> - Once the process is complete, borrowers make fixed monthly payments and 
+investors receive a portion of those payments directly to their Prosper account.
+
+The Prosper Loan data analyzed here contains 113,937 records last updated on
+03/11/2014.
+
+## Exploring the Dataset
+
+The dataset contains 113937 records with 81 variables.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+dim(loans)
+```
+
+The names of the 81 variables:
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+names(loans)
+```
+
+Overview of dataset variables:
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+summary(loans)
+```
+
+While exploring the dataset, I found the need to create new variables and data
+frames.
+- New variables: ListingCreationYear, ListingCategoryName, CreditScoreAverage
+- New data frames: loansFrom2009 (loan data after July 12, 2009),
+                   loansTo2009 (loan data before July 12, 2009)
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+# Extract year into new variable
+loans$ListingCreationYear = year(loans$ListingCreationDate)
+loans$ListingCreationYear <- as.factor(loans$ListingCreationYear)
+
+# Match numeric loan type to correct labels
+alphaLoanType <- c("Not Applicable", "Debt Consolidation", "Home Improvement",
+           "Business", "Personal Loan", "Student Use", "Auto", "Other",
+           "Baby&Adoption", "Boat", "Cosmetic Procedure", "Engagement Ring", 
+           "Green Loans", "Household Expenses", "Large Purchases",
+           "Medical/Dental", "Motorcycle", "RV", "Taxes", "Vacation", 
+           "Wedding Loans")
+loans$ListingCategoryName <- factor(loans$ListingCategory, 
+                                    levels = seq(0:20), labels = alphaLoanType)
+
+# Create a new variable of getting a single value for credit score by 
+# getting average of lower and upper limits of credit score range.
+loans$CreditScoreAverage = ceiling((loans$CreditScoreRangeLower + 
+                              loans$CreditScoreRangeUpper) / 2)
+
+# Create new data frames: loan data before July 12, 2009 and loan data after
+# July 12, 2009.
+loansFrom2009 <- subset(loans, loans$ListingCreationDate > "2009-07-12")
+loansTo2009 <- subset(loans, loans$ListingCreationDate <= "2009-07-12")
+
+
+```
+
+# Univariate Plots Section
+
+### Is there a trend in the number of Prosper loans?
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(aes(x = ListingCreationYear), data = loans) + 
+  geom_bar() + 
+  ggtitle("Number of Loans by Year") +
+  xlab("Loan Creation Year")
+```
+
+The number of loans by year graph shows that the number of loans increased from
+2006 to 2009 but decreased in 2009 due to the global financial crisis. Loans
+increased again starting in 2010 through 2013. The decrease in loans can be 
+possibily explained by not having full year data for 2014.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+range(loans$ListingCreationDate)
+```
+
+Checking the range of loan listing creation date, the data confirms that the
+most recent data for 2014 is March 10, confirming 2014 data does not contain 
+full year data.
+
+### What is the distribution of loans by credit grade?
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+# Reorder Credit Grade in descending order
+loansTo2009$CreditGrade <- ordered(loansTo2009$CreditGrade, levels = 
+                                     c("AA","A","B","C","D",
+                                       "E","HR","NC"))
+
+ggplot(aes(x = CreditGrade), data = loansTo2009) + 
+  geom_bar() + 
+  ggtitle("Number of Loans by Credit Grade (Pre-2009)") +
+  xlab("Credit Grade")
+```
+
+I was interested in investigating who uses peer-to-peer lending platform. One
+way of looking the data was throuth the credit grade that Prosper created. 
+The credit grade data for data before July 12, 2009 shows a normal distribution
+of data. Prosper moved to a new rating system starting July 12, 2009.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+loansFrom2009$ProsperRating..Alpha. <- ordered(loansFrom2009$ProsperRating..Alpha.,
+                                               levels = c("AA","A","B","C","D",
+                                       "E","HR","NC","NA"))
+ggplot(aes(x = ProsperRating..Alpha.), data = loansFrom2009) + 
+  geom_bar() + 
+  ggtitle("Number of Loans by Credit Grade (Post-2009)") +
+  xlab("Prosper Rating")
+```
+
+Post-2009 credit grade has been renamed as Prosper Rating. Although it is showing
+a normal distribution similar to pre-2009 credit grade distribution, the Prosper
+Rating is showing fewer applicants with the highest and the lowest distribution.
+
+### Distribution of Credit Scores of Prosper Applicants
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+
+ggplot(aes(x = CreditScoreAverage), data = loans) + 
+  geom_bar() + 
+  ggtitle("Average Credit Score") +
+  xlab("Credit Score Average")
+
+summary(loans$CreditScoreAverage)
+```
+
+In further understanding Prosper applicants, I have plotted credit score of 
+applicants. The dataset provided fields of lower and upper credit score range.
+The data here is the average of the lower and upper range. 
+
+According to study by [ValuePenguin](https://www.valuepenguin.com/average-credit-score),
+the average American credit score is 695, which is almost identical the score of
+695.6 of Prosper applicants. This shows that Prosper applicants are not skewed
+towards either low or high credit score applicants. THe normal distribution of 
+the plot further supports this finding.
+
+### Distribution of risk score built by Prosper
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+
+ggplot(aes(x = ProsperScore), data = loansFrom2009) + 
+  geom_bar() + 
+  scale_x_continuous(breaks=seq(0, 12, 1)) +
+  ggtitle("Prosper Score (Post-2009)")  +
+  xlab("Prosper Score")
+
+summary(loans$ProsperScore)
+```
+
+The Prosper Score is a custom risk score built using historical Prosper data.
+The higher Prosper Score indicates the lowest risk users. The Prosper Score 
+shows a different distribution from Prosper Rating data. This indicates the
+Prosper Score is calculated based on multiple factors.
+
+### Distribution of loan term
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(aes(x = as.factor(Term)), data = loans) + 
+  geom_bar() + 
+  ggtitle("Loan Term") +
+  xlab("Term")
+table(loans$Term)
+```
+
+After learning who used Prosper's service, I was interested in how the Prosper
+lending service was used. The distribution of loan term shows that approximately
+77% of the loans were 36 month loans. It is followed by 21.5% of 60 month loans 
+and 1.5% of loans being 12 month loans.
+
+### Distribution of Loan Status
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+loans$LoanStatus <- ordered(loans$LoanStatus,levels = c("Cancelled","Chargedoff",
+                                                        "Completed","Current",
+                                                        "Defaulted",
+                                                        "FinalPaymentInProgress",
+                                                        "Past Due (1-15 days)",
+                                                        "Past Due (16-30 days)",
+                                                        "Past Due (31-60 days)",
+                                                        "Past Due (61-90 days)",
+                                                        "Past Due (91-120 days)",
+                                                        "Past Due (>120 days)"))
+
+ggplot(aes(x = reorder(LoanStatus, LoanStatus, function(x) -length(x))), 
+           data = loans) + 
+  geom_bar() + 
+  ggtitle("Loan Status") +
+  scale_y_sqrt() +
+  theme(axis.text.x=element_text(angle=45,hjust=1)) +
+  xlab("Loan Status")
+```
+
+Next, I was interested in the current status of Prosper loans. Most of the loan 
+status is current. It is followed by completed, charged off, and defaulted loan
+status.
+
+### Distribution of Loans by Listing Category
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(aes(x = ListingCategoryName), data = loans) + 
+  geom_bar() + 
+  ggtitle("Number of Loans by Listing Category") +
+   scale_y_log10() +
+  theme(axis.text.x=element_text(angle=45,hjust=1)) +
+  xlab("Listing Category")
+```
+
+Observing the plot, the most common category the borrower selected when posting
+their listing is auto. It is followed by debt consolidation and home improvement.
+
+### Number of Current Credit Lines
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(aes(x = CurrentCreditLines), data = loans) + 
+  geom_bar() + 
+  ggtitle("Number of Current Credit Lines") +
+  xlab("Current Credit Lines")
+
+summary(loans$CurrentCreditLines)
+```
+
+The number of current credit lines at the time when credit profile was pulled
+ranges from 0 to 59, with average of 10.32.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(aes(x = OpenCreditLines), data = loans) + 
+  geom_bar() + 
+  ggtitle("Number of Loans by Open Credit Lines") +
+  xlab("Open Credit Lines")
+summary(loans$OpenCreditLines)
+```
+
+The number of open credit lines at the time when credit profile was pulled shows
+a similar distribution with current credit lines. The number of loans by open
+credit lines ranges from 0 to 54, with average of 9.26.
+
+### Number of Loans by Income Range
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+loans$IncomeRange <- ordered(loans$IncomeRange,levels = c("Not displayed",
+                                                          "Not employed",
+                                                          "$0","$1-24,999",
+                                                          "$25,000-49,999",
+                                                          "$50,000-74,999",
+                                                          "$75,000-99,999",
+                                                          "$100,000+"))
+
+ggplot(aes(x = IncomeRange), data = loans) + 
+  geom_bar() + 
+  ggtitle("Number of Loans by Income Range") +
+  theme(axis.text.x=element_text(angle=90,hjust=1)) 
+```
+
+The income range data for borrowers show that the $25,000-49,999 income bracket
+request most loans, followed by $50,000-74,999 income range.
+
+### Distribution of Total Prosper Loans
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(aes(x = TotalProsperLoans), data = loans) + 
+  scale_x_continuous(breaks=seq(0, 10, 1)) +
+  geom_bar() + 
+  ggtitle("Total Prosper Loans") 
+```
+
+Data shows that most of the Prosper applicants were first-time borrowers. This
+was to be expected because of Prosper's short history (founded in 2005).
+
+### Distribution of Loan by Amount
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(aes(x = LoanOriginalAmount), data = loans) + 
+  geom_histogram(binwidth=500) + 
+  ggtitle("Number of Loans by Original Loan Amount") 
+summary(loans$LoanOriginalAmount)
+```
+
+The distribution of loan amount shows a median amount of $6,500. The plot shows
+significant number of loans were increments of $5,000 with plots showing spikes
+in loan amount of $5,000, $10,000, $15,000, and $20,000.
+
+### Number of Loans by Originial Loan Amount
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(aes(x = MonthlyLoanPayment), data = loans) + 
+  geom_histogram(binwidth = 20) +
+  ggtitle("Number of Loans by Monthly Loan Payment") 
+summary(loans$MonthlyLoanPayment)
+```
+
+The distribution of monthly loan payment shows median of $217.7. The plot shows
+most loan payment under $500 per month. With maximum payment of $2,251, this 
+plot also shows flexibility in loan payment, which could be one factor in 
+using Prosper loan service.
+
+
+# Univariate Analysis
+
+### What is the structure of your dataset?
+
+The Prosper loan dataset contains 113,937 loan data across 81 variables. 
+
+### What is/are the main feature(s) of interest in your dataset?
+
+In investigating the Prosper loan dataset, I was interested in who uses 
+peer-to-peer lending service. The univariate plots revealed that many high income
+people used Prosper loan service. I was surprised and intrigued by this trend. 
+I would like to investigate further categorize which people are more likely to 
+take more loans and for what reason.
+
+### What other features in the dataset do you think will help support your \
+investigation into your feature(s) of interest?
+
+In analysis of the dataset, I found the need to create a listing name for 
+ListingCategory, where it originally had numerical values. Also, I found that
+the ListingCatoryYear would be helpful in seeing trends in listings year to year
+and CreditScoreAverage variable to have a single reference point for credit score
+instead of having a lower and upper range.
+
+### Did you create any new variables from existing variables in the dataset?
+
+I created ListingCreationYear, ListingCategoryName, and CreditScoreAverage
+variables to the dataset in assisting analyzing Prosper loan dataset.
+
+### Of the features you investigated, were there any unusual distributions? \
+Did you perform any operations on the data to tidy, adjust, or change the form \
+of the data? If so, why did you do this?
+
+It was interesting to see how much the 2009 Global financial crisis had impacted
+the number of Prosper loans initiated that year. I created ListingCreationYear to
+show prosper loan by year instead of showing continuous data variable.
+
+# Bivariate Plots Section
+
+### Prosper Rating vs Credit Score Average
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+loansFrom2009$ProsperRating..Alpha. <- ordered(loansFrom2009$ProsperRating..Alpha.,
+                                               levels = c("AA","A","B","C","D",
+                                       "E","HR","NC","NA"))
+
+ggplot(aes(x=ProsperRating..Alpha., y=CreditScoreAverage), 
+       data=loansFrom2009) +
+    geom_boxplot() +
+  ggtitle("Prosper Rating vs Credit Score Average") +
+  xlab("Prosper Rating") +
+  ylab("Credit Score Average")
+
+by(loans$CreditScoreAverage, loans$ProsperRating..Alpha., summary)
+```
+
+As expected, the higher Prosper Rating is associated with a higher average credit
+score. However, it was surprising to learn that even the lowest Prosper Ratings
+of D and E had applicants with average credit score of 870. This fact shows that
+Prosper Rating is based on multiple factors.
+
+### Prosper Rating vs Loan Original Amount
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+loansFrom2009$ProsperRating..Alpha. <- ordered(loansFrom2009$ProsperRating..Alpha.,
+                                               levels = c("AA","A","B","C","D",
+                                       "E","HR","NC","NA"))
+
+ggplot(aes(x=ProsperRating..Alpha., y=LoanOriginalAmount), 
+       data=loansFrom2009) +
+    geom_boxplot() +
+  ggtitle("Prosper Rating vs Loan Original Amount") +
+  xlab("Prosper Rating") +
+  ylab("Loan Original Amount")
+
+by(loans$LoanOriginalAmount, loans$ProsperRating..Alpha., summary)
+```
+
+The plot shows correlation between Prosper Rating and loan amount of applicants.
+Data shows that applicants with higher rating tend to have higher loans on 
+Prosper.
+
+### Listing Category vs Loan Original Amount
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+loansFrom2009$ProsperRating..Alpha. <- ordered(loansFrom2009$ProsperRating..Alpha.,
+                                               levels = c("AA","A","B","C","D",
+                                       "E","HR","NC","NA"))
+
+ggplot(aes(x=ListingCategoryName, y=LoanOriginalAmount), 
+       data=loansFrom2009) +
+    geom_boxplot() +
+  ggtitle("Listing Category vs Loan Original Amount") +
+  xlab("Listing Category") +
+  ylab("Loan Original Amount") +
+  theme(axis.text.x=element_text(angle=90,hjust=1)) 
+```
+
+The Prosper Rating vs. Loan Original Amount plot shows home improvement category
+with the highest average loan amount and personal loan category with the lowest
+average loan amount. 
+
+### Home Owner vs Loan Original Amount
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+
+ggplot(aes(x=IsBorrowerHomeowner, y=LoanOriginalAmount), 
+       data=loans) +
+    geom_boxplot() +
+  ggtitle("Home Owner vs Loan Original Amount") +
+  xlab("Home Owner") +
+  ylab("Loan Original Amount") +
+  theme(axis.text.x=element_text(angle=90,hjust=1)) 
+```
+
+The data shows that homeowners have, on average, higher loan amount from Prosper.
+
+# Bivariate Analysis
+
+### Talk about some of the relationships you observed in this part of the \
+investigation. How did the feature(s) of interest vary with other features in \
+the dataset?
+
+In investigating listing category vs. loan original amount data, I wass surprised
+to see listing category did not have a significant correlation with loan original
+amount. I expected greater variance with some category than others.
+
+### Did you observe any interesting relationships between the other features \
+(not the main feature(s) of interest)?
+
+I observed that homeowner status has strong correlation with loan original amount.
+
+### What was the strongest relationship you found?
+
+The strongest relationship was prosper rating vs. credit score average. It was
+still surprising to learn that some people with high credit score still rated
+low on Prosper rating.
+
+# Multivariate Plots Section
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+creditsubset <- c("CreditScoreAverage","CurrentCreditLines","OpenCreditLines",
+                  "TotalCreditLinespast7years","OpenRevolvingAccounts",
+                  "InquiriesLast6Months","TotalInquiries","CurrentDelinquencies",
+                  "DebtToIncomeRatio","IncomeRange","ProsperRating..numeric.")
+loanscredit <- loans[creditsubset]
+
+ggcorr(loanscredit, label = TRUE, label_size = 3,
+       hjust = 0.8, size = 2.5, color = "black", layout.exp = 2)
+```
+
+I was interested in learning which factors in the dataset has greatest correlation
+with each other and ultimately with the Prosper Rating. The heat map shows that 
+the Pearson correlation between chosen variables for investigation. The Prosper
+Rating has greatest correlation with average credit score. It has little correlation
+with number of current credit lines, number of open credit lines, and number of
+revolving accounts. 
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(aes(x=BorrowerAPR, y = LoanOriginalAmount), data = loans) +
+  ggtitle("Borrower APR vs Loan Original Amount by Prosper Rating")  +
+  geom_point(color="black",size=0.1) +
+  facet_wrap(~ProsperRating..Alpha., ncol=2,  scales = "fixed")
+
+```
+
+In this plot, I wanted to investigate how much loans people take depending on
+Prosper rating. As expected, higher credit raters enjoy lower APR. The plot
+shows that higher credit raters tends to take higher loans, while lower credit
+raters has more variance in APR even within Prosper rating bracket.
+
+# Multivariate Analysis
+
+### Talk about some of the relationships you observed in this part of the \
+investigation. Were there features that strengthened each other in terms of \
+looking at your feature(s) of interest?
+
+In investigating subset of Prosper loan data, I was able to find that the average
+credit score had the strongest correlation.
+
+In investigating Borrower APR vs Loan Original Amount by Prosper Rating I found
+that people with higher Prosper Rating are likely to have larger loans. I also 
+found that the lower Prosper Rating users see more variation in APR even within
+their Prosper Rating bracket.
+
+### Were there any interesting or surprising interactions between features?
+
+I was surprised to see little correlation betewen number of credit accounts
+opened and Prosper Rating.
+
+------
+
+# Final Plots and Summary
+
+### Plot One
+```{r echo=FALSE, Plot_One}
+ggplot(aes(x = ListingCreationYear), data = loans) + 
+  geom_bar() + 
+  ggtitle("Number of Loans by Year") +
+  xlab("Loan Creation Year")
+```
+
+### Description One
+
+This plot shows not only shows the growth of Prosper's business but also the 
+growth of peer-to-peer lending service. It is showing steady growth since 2005,
+with the exception of Global Finanical Crisis in 2009.
+
+### Plot Two
+```{r echo=FALSE, Plot_Two}
+loansFrom2009$ProsperRating..Alpha. <- ordered(loansFrom2009$ProsperRating..Alpha.,
+                                               levels = c("AA","A","B","C","D",
+                                       "E","HR","NC","NA"))
+
+ggplot(aes(x=ProsperRating..Alpha., y=CreditScoreAverage), 
+       data=loansFrom2009) +
+    geom_boxplot() +
+  ggtitle("Prosper Rating vs Credit Score Average") +
+  xlab("Prosper Rating") +
+  ylab("Credit Score Average")
+```
+
+### Description Two
+
+I was interested to see how Prosper rating is calculated. Although the Prosper
+Rating is strongly correlated with credit scores, I was also surprised to see
+lower Prosper Rating associated with high credit scores. This shows that Prosper
+Rating is calculated based on multiple factors.
+
+### Plot Three
+```{r echo=FALSE, Plot_Three}
+ggcorr(loanscredit, label = TRUE, label_size = 3,
+       hjust = 0.8, size = 2.5, color = "black", layout.exp = 2)
+```
+
+### Description Three
+
+In continuation of investigating how Prosper Rating is calculated, I created a
+subset of data with the factors that could potentially have correlation with
+Prosper Rating. The credit score has the strongest correlation to Prosper Rating.
+
+------
+
+# Reflection
+
+Investigating the Prosper Loan dataset, I gained insight into the peer-to-peer
+lending service. I had no idea on who used this service and the APR the users
+enjoyed. In investigating the dataset, I was most interested in who uses
+Prosper's service, how they used the service, and for what purpose. The biggest
+struggle was first with the ggplot syntax and organizing plots so that it was
+easy for the user to interpret the data. The second major challenge for me was
+finding interesting trends from the dataset. Finding trends and relationships 
+from 81 variables was a challenge with the number of variables and data.
+I found that by dividing the variables into similar and smaller pieces, I was 
+able to decipher data more easily.
+
+One interesting future work could be finding trends that could influence Prosper
+Rating. It is likely that the current Prosper Rating does not account for 
+applicants based on economy situation. During a recession like 2009, there could 
+be factors more relevant to risk factors than during an economic boom. Having a
+dynamic Prosper Rating based on economic sitaution could help filter applicants
+effectively and ultimately bring more profits to Prosper.

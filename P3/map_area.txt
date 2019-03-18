@@ -1,0 +1,3 @@
+The map area explored in this project is Atlanta, Georgia area downloaded from MapZen (https://mapzen.com/data/metro-extracts/metro/atlanta_georgia/).
+
+I chose this area because I reside here. 
